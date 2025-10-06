@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CloudEver Poster Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;600;800&family=Orbitron:wght@600;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/generator.css" />
+    <!-- made by ENOCH -->
+  </head>
+  <body>
+    <div class="app">
+      <aside class="panel">
+        <header>
+          <h1>Poster Generator</h1>
+          <p class="sub"></p>
+        </header>
+
+        <form id="form" class="form" onsubmit="return false;">
+          <div class="field">
+            <label for="size">尺寸</label>
+            <select id="size" name="size">
+              <option value="3840x4800" selected>3840 x 4800（4:5）</option>
+              <option value="2160x3840">2160 x 3840（9:16）</option>
+              <option value="3840x2160">3840 x 2160（16:9）</option>
+            </select>
+          </div>
+
+          <!-- <div class="field two">
+            <div>
+              <label for="zoom">预览缩放</label>
+              <select id="zoom" name="zoom">
+                <option value="fit" selected>适配屏幕</option>
+                <option value="100">100%</option>
+                <option value="75">75%</option>
+                <option value="50">50%</option>
+                <option value="33">33%</option>
+                <option value="25">25%</option>
+              </select>
+            </div>
+            <div></div>
+          </div> -->
+
+          <div class="field">
+            <label for="displayName">ID</label>
+            <input id="displayName" name="displayName" type="text" autocomplete="off" />
+          </div>
+
+          <div class="actions">
+            <button id="btnGenerate" class="btn primary" type="button">预览</button>
+            <button id="btnDownload" class="btn success" type="button">下载</button>
+          </div>
+        </form>
+      </aside>
+
+      <main class="stage">
+        <div class="canvas-wrap">
+          <canvas id="poster" width="1080" height="1350"></canvas>
+        </div>
+      </main>
+    </div>
+
+    <script src="js/generator.js"></script>
+  </body>
+  </html>
