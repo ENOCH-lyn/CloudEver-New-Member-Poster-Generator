@@ -43,6 +43,31 @@
     }
   }
 
+  // Ensure web fonts are loaded before first render to avoid fallback fonts in canvas
+  let fontsReady = false;
+  async function ensureFonts() {
+    if (fontsReady) return;
+    try {
+      if ('fonts' in document) {
+        // Explicitly load the exact families/weights we use on canvas
+        const loads = [];
+        if (document.fonts.load) {
+          loads.push(
+            document.fonts.load('800 120px Orbitron'),
+            document.fonts.load('800 120px Montserrat'),
+            document.fonts.load('700 64px Montserrat'),
+            document.fonts.load('800 64px Inter')
+          );
+        }
+        if ('ready' in document.fonts) {
+          loads.push(document.fonts.ready);
+        }
+        if (loads.length) await Promise.allSettled(loads);
+      }
+    } catch (_) { /* no-op */ }
+    fontsReady = true;
+  }
+
   function setCanvasSize(value) {
     const [w, h] = value.split('x').map((n) => parseInt(n, 10));
     canvas.width = w;
@@ -122,7 +147,8 @@
   // Gradient brand text: CloudEver (mimic .logo-text)
   const brandWord = 'CloudEver';
   const cloudFontSize = Math.floor(minSide * (isLandscape ? 0.085 : 0.10));
-  ctx.font = `900 ${cloudFontSize}px Orbitron, Montserrat`;
+  // Use 800 to match loaded Orbitron wght (600,800)
+  ctx.font = `800 ${cloudFontSize}px Orbitron, Montserrat`;
   const textWidth = ctx.measureText(brandWord).width;
   const gx = (w - textWidth) / 2;
   const gy = Math.floor(h * (isLandscape ? 0.24 : 0.26));
@@ -134,9 +160,10 @@
 
     // Name
   const nameMaxW = w * 0.86;
-  const nameSize = fitText(name, nameMaxW, Math.floor(minSide * (isLandscape ? 0.11 : 0.13)), 'Orbitron, Montserrat', 900);
+  const nameSize = fitText(name, nameMaxW, Math.floor(minSide * (isLandscape ? 0.11 : 0.13)), 'Orbitron, Montserrat', 800);
     ctx.fillStyle = '#ffffff';
-    ctx.font = `900 ${nameSize}px Orbitron, Montserrat`;
+    // Use 800 to match loaded Orbitron/Montserrat
+    ctx.font = `800 ${nameSize}px Orbitron, Montserrat`;
   ctx.fillText(name, w / 2, Math.floor(h * (isLandscape ? 0.78 : 0.80)));
 
     // Underline gradient
@@ -174,41 +201,92 @@
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, w, h);
 
-    // Very subtle grid
+    // Gradient-colored grid with glow (brandPrimary ↔ brandAccent) and resolution-aware line width
+    const unit = Math.min(w, h);
+    const baseLineWidth = Math.max(1, Math.floor(unit * 0.0005));
+    const step = Math.round(unit / 22);
+
+    // Prepare gradients
+    const gradV = ctx.createLinearGradient(0, 0, 0, h); // top→bottom
+    gradV.addColorStop(0, hex2rgba(brandPrimary, 0.12));
+    gradV.addColorStop(1, hex2rgba(brandAccent, 0.12));
+    const gradH = ctx.createLinearGradient(0, 0, w, 0); // left→right
+    gradH.addColorStop(0, hex2rgba(brandAccent, 0.12));
+    gradH.addColorStop(1, hex2rgba(brandPrimary, 0.12));
+
+    // Glow pass (additive blend + blur)
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.035)';
-    ctx.lineWidth = 1;
-    const step = Math.round(Math.min(w, h) / 22);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'square';
+    ctx.shadowBlur = Math.max(8, Math.floor(unit * 0.012));
+    // Vertical glow
+    ctx.strokeStyle = gradV;
+    ctx.shadowColor = hex2rgba(brandPrimary, 0.45);
+    ctx.lineWidth = Math.max(1.5, Math.floor(baseLineWidth * 3));
     for (let x = 0; x <= w; x += step) {
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
     }
+    // Horizontal glow
+    ctx.strokeStyle = gradH;
+    ctx.shadowColor = hex2rgba(brandAccent, 0.45);
     for (let y = 0; y <= h; y += step) {
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
     }
     ctx.restore();
 
-    // Soft bokeh lights
-    const circles = 6;
-    for (let i = 0; i < circles; i++) {
-      const r = Math.random() * (Math.min(w, h) * 0.08) + Math.min(w, h) * 0.04;
-      const cx = Math.random() * w;
-      const cy = Math.random() * h * 0.9 + h * 0.05;
-      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-      const col = i % 2 === 0 ? brandPrimary : brandAccent;
-      g.addColorStop(0, hex2rgba(col, 0.12));
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-    }
-
-    // Tiny stars/noise points
+    // Crisp pass
     ctx.save();
-    ctx.fillStyle = 'rgba(255,255,255,0.05)';
-    for (let i = 0; i < 120; i++) {
-      const x = Math.random() * w;
-      const y = Math.random() * h;
-      const s = Math.random() * 1.2 + 0.2;
-      ctx.fillRect(x, y, s, s);
+    ctx.lineWidth = baseLineWidth;
+    ctx.strokeStyle = gradV;
+    for (let x = 0; x <= w; x += step) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+    ctx.strokeStyle = gradH;
+    for (let y = 0; y <= h; y += step) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+    ctx.restore();
+
+    // Tech contrast enhancements: directional glow band, focal darkening, and intersection glow dots
+  // 1) Diagonal light band (adds gradient light without randomness)
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const band = ctx.createLinearGradient(0, 0, w, h); // 45° band
+  // Widen the band: move outer stops outward while keeping color/alpha unchanged
+  band.addColorStop(0.22, hex2rgba(brandAccent, 0.0));
+  band.addColorStop(0.50, hex2rgba(brandPrimary, 0.14));
+  band.addColorStop(0.78, hex2rgba(brandAccent, 0.0));
+    ctx.fillStyle = band;
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+
+    // 2) Focal darkening mask to create depth (non-random)
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    const darkR = Math.max(w, h) * 0.75;
+    const darkGrad = ctx.createRadialGradient(w * 0.68, h * 0.36, 0, w * 0.68, h * 0.36, darkR);
+    darkGrad.addColorStop(0.0, 'rgba(0,0,0,0.00)');
+    darkGrad.addColorStop(1.0, 'rgba(0,0,0,0.30)');
+    ctx.fillStyle = darkGrad;
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+
+    // 3) Deterministic glow at some grid intersections (no randomness)
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const dotStep = step * 3; // sparser than grid lines
+    const dotR = Math.max(2, Math.floor(unit * 0.004));
+    for (let y = 0; y <= h; y += dotStep) {
+      for (let x = 0; x <= w; x += dotStep) {
+        const g = ctx.createRadialGradient(x, y, 0, x, y, dotR);
+        // Alternate hues by tile parity to add subtle variety
+        const usePrimary = ((Math.floor(x / step) + Math.floor(y / step)) % 2) === 0;
+        const col = usePrimary ? brandPrimary : brandAccent;
+        g.addColorStop(0, hex2rgba(col, 0.20));
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(x, y, dotR, 0, Math.PI * 2); ctx.fill();
+      }
     }
     ctx.restore();
   }
@@ -399,6 +477,10 @@
 
   async function render() {
     await ensureAssets();
+    // If fonts are not ready yet, wait to ensure consistent typography
+    if (!fontsReady) {
+      await ensureFonts();
+    }
     const [w, h] = [canvas.width, canvas.height];
     const name = (displayNameEl.value || 'name').toUpperCase();
 
@@ -439,7 +521,10 @@
       const n = params.get('name');
       if (n) displayNameEl.value = n;
     } catch (_) {}
-    await ensureAssets();
+    await Promise.all([
+      ensureAssets(),
+      ensureFonts(),
+    ]);
     await render();
   })();
 
