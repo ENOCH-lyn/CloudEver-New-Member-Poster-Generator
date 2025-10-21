@@ -482,7 +482,7 @@
       await ensureFonts();
     }
     const [w, h] = [canvas.width, canvas.height];
-    const name = (displayNameEl.value || 'name').toUpperCase();
+  const name = (displayNameEl.value || 'name').trim() || 'name';
 
   // Clear
     ctx.clearRect(0, 0, w, h);
@@ -495,10 +495,10 @@
 
   function downloadPNG() {
     try {
-      const link = document.createElement('a');
-      const name = (displayNameEl.value || 'member').trim();
-      link.download = `CloudEver-Welcome-${name || 'member'}.png`;
-      link.href = canvas.toDataURL('image/png');
+  const link = document.createElement('a');
+  const name = (displayNameEl.value || 'member').trim();
+  link.download = `CloudEver-Welcome-${name || 'member'}.jpg`;
+  link.href = canvas.toDataURL('image/jpeg', 0.9);
       link.click();
     } catch (_) {
     }
